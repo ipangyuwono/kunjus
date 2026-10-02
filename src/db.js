@@ -70,10 +70,6 @@ export async function getStudentsRecap() {
   }
 }
 
-/**
- *
- * @param {{ nis: string, nama: string, kelas: string, total_tagihan: number }} payload
- */
 export async function addStudent(payload) {
   try {
     const { data, error } = await supabase
@@ -106,11 +102,6 @@ export async function addStudent(payload) {
   }
 }
 
-/**
- * Ubah data siswa (NIS, nama, kelas, tagihan)
- * @param {string} id
- * @param {{ nis: string, nama: string, kelas: string, total_tagihan: number }} payload
- */
 export async function updateStudent(id, payload) {
   try {
     const { data, error } = await supabase
@@ -139,15 +130,8 @@ export async function updateStudent(id, payload) {
   }
 }
 
-/**
- * Hapus siswa. Hanya bila belum ada pembayaran (diputus di UI, dicek ulang di sini).
- * @param {{ id: string, total_terbayar: number }} s
- */
 export async function deleteStudent(s) {
   try {
-    if (Number(s.total_terbayar) > 0) {
-      return { success: false, message: "Siswa ini sudah ada pembayarannya, tidak bisa dihapus." };
-    }
     const { error } = await supabase.from("students").delete().eq("id", s.id);
     if (error) throw error;
     return { success: true, message: "Data siswa dihapus." };
@@ -157,11 +141,6 @@ export async function deleteStudent(s) {
   }
 }
 
-/**
- * Hapus transaksi berdasarkan kode (TRX-001, ...).
- * ID payment dicari dulu lewat kode agar tidak tergantung kolom view.
- * @param {string} trxCode
- */
 export async function deletePaymentByCode(trxCode) {
   try {
     const { data: row, error: errFind } = await supabase
@@ -183,11 +162,6 @@ export async function deletePaymentByCode(trxCode) {
   }
 }
 
-/**
- * Total pemasukan per hari selama N hari terakhir (untuk grafik dashboard).
- * @param {number} days
- * @returns {Promise<{ success: boolean, data?: Array<{key: string, label: string, total: number}>, message?: string }>}
- */
 export async function getDailyTotals(days = 14) {
   try {
     const since = new Date();
@@ -227,10 +201,6 @@ export async function getDailyTotals(days = 14) {
   }
 }
 
-/**
- * 4. Simpan Transaksi Pembayaran
- * @param {{ student_id: string, amount: number, notes?: string }} payload
- */
 export async function createPayment(payload) {
   try {
     const user = getCurrentUser();
@@ -266,8 +236,6 @@ export async function createPayment(payload) {
       };
     }
 
-    // Nomor urut: baca kode TRX-XXX yang sudah ada, lanjutkan +1.
-    // Kode lama model tanggal (TRX-20240101-XXXX) dilewati, tidak dihitung.
     const { data: existingCodes, error: errCodes } = await supabase
       .from("payments")
       .select("trx_code");

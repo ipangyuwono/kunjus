@@ -1,6 +1,3 @@
-/**
- * Format angka ke format mata uang Rupiah
- */
 export function formatRupiah(number) {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -9,9 +6,6 @@ export function formatRupiah(number) {
   }).format(Number(number) || 0);
 }
 
-/**
- * Format tanggal timestamptz ke format lokal Indonesia
- */
 export function formatDate(dateString) {
   if (!dateString) return "-";
   const date = new Date(dateString);
@@ -59,14 +53,6 @@ export function showTableError(tbodyId, cols, message) {
   tbody.innerHTML = `<tr><td colspan="${cols}" class="p-8 text-center text-[13px]"><p class="text-rose-700 font-semibold">Gagal memuat data.</p><p class="text-slate-400 mt-1">${escapeHtml(message || "")}</p></td></tr>`;
 }
 
-export function setCountText(elId, shown, total, noun) {
-  const el = document.getElementById(elId);
-  if (!el) return;
-  el.innerText = shown === total
-    ? `Menampilkan ${total} ${noun}`
-    : `Menampilkan ${shown} dari ${total} ${noun}`;
-}
-
 export function renderDashboard(stats) {
   document.getElementById("dashTotalSiswa").innerText = stats.totalSiswa ?? 0;
   document.getElementById("dashSiswaLunas").innerText = stats.totalSiswaLunas ?? 0;
@@ -77,7 +63,6 @@ export function renderDashboard(stats) {
   document.getElementById("dashUangMasuk").innerText = formatRupiah(stats.totalUangMasuk);
   document.getElementById("dashSisaTagihan").innerText = formatRupiah(stats.sisaTagihan);
 
-  // Progress bar Pivora
   const bar = document.getElementById("dashProgressBar");
   const pctLabel = document.getElementById("dashProgressPct");
   if (bar) {
@@ -91,18 +76,17 @@ export function renderDashboard(stats) {
 
 function statusBadge(status) {
   if (status === "Lunas") {
-    return '<span class="inline-block px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-semibold rounded-md">Lunas</span>';
+    return '<span class="inline-block px-2 py-0.5 bg-emerald-200 text-emerald-700 border border-emerald-50 text-[11px] font-semibold rounded-md">Lunas</span>';
   }
   if (status === "Cicilan") {
-    return '<span class="inline-block px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-semibold rounded-md">Cicilan</span>';
+    return '<span class="inline-block px-2 py-0.5 bg-amber-200 text-amber-800 border border-amber-50 text-[11px] font-semibold rounded-md">Cicilan</span>';
   }
-  return '<span class="inline-block px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 text-[11px] font-semibold rounded-md">Belum bayar</span>';
+  return '<span class="inline-block px-2 py-0.5 bg-rose-200 text-rose-700 border border-rose-50 text-[11px] font-semibold rounded-md">Belum bayar</span>';
 }
 
-export function renderStudentTable(students, total, actions = {}) {
+export function renderStudentTable(students, actions = {}) {
   const tbody = document.getElementById("tabelDataSiswa");
   tbody.innerHTML = "";
-  setCountText("countSiswa", (students || []).length, total ?? (students || []).length, "siswa");
 
   if (!students || students.length === 0) {
     tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-400 text-[13px]">Tidak ada yang cocok. Ubah kata kunci atau filter status.</td></tr>`;
@@ -134,10 +118,9 @@ export function renderStudentTable(students, total, actions = {}) {
   });
 }
 
-export function renderPaymentHistory(history, onPrintCallback, total, actions = {}) {
+export function renderPaymentHistory(history, onPrintCallback, actions = {}) {
   const tbody = document.getElementById("tabelRiwayat");
   tbody.innerHTML = "";
-  setCountText("countRiwayat", (history || []).length, total ?? (history || []).length, "transaksi");
 
   if (!history || history.length === 0) {
     tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-400 text-[13px]">Tidak ada yang cocok. Ubah kata kunci atau tanggal.</td></tr>`;
@@ -173,10 +156,9 @@ export function renderPaymentHistory(history, onPrintCallback, total, actions = 
   });
 }
 
-export function renderLaporanTable(students, total) {
+export function renderLaporanTable(students) {
   const tbody = document.getElementById("tabelLaporanRekap");
   tbody.innerHTML = "";
-  setCountText("countRekap", (students || []).length, total ?? (students || []).length, "siswa");
 
   if (!students || students.length === 0) {
     tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400 text-[13px]">Tidak ada yang cocok. Ubah kata kunci atau filter status.</td></tr>`;
@@ -227,15 +209,10 @@ export function populateSiswaSelect(students) {
   }
 }
 
-/**
- * Angka ke ejaan Bahasa Indonesia, misal 150000 -> "seratus lima puluh ribu".
- * Dipakai untuk baris Terbilang di kwitansi.
- */
 export function terbilang(n) {
   n = Math.floor(Math.abs(Number(n) || 0));
   if (n === 0) return "nol";
   const kata = ["", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan", "sembilan", "sepuluh", "sebelas"];
-  // Gabung kepala + satuan, sisa nol tidak disebut (100 -> "seratus", bukan "seratus nol")
   const gabung = (kepala, satuan, sisa) => kepala + " " + satuan + (sisa ? " " + terbilang(sisa) : "");
   let hasil;
   if (n < 12) hasil = kata[n];
@@ -253,11 +230,6 @@ export function terbilang(n) {
 export function terbilangRupiah(n) {
   const t = terbilang(n);
   return t.charAt(0).toUpperCase() + t.slice(1) + " rupiah";
-}
-
-function setText(id, val) {
-  const el = document.getElementById(id);
-  if (el) el.innerText = val;
 }
 
 export function showKwitansi(data) {
@@ -280,24 +252,10 @@ export function showKwitansi(data) {
     ttdPetugas: petugas,
     tglTtd,
   };
-  // Isi semua rangkap (atas + bawah) sekaligus
   document.querySelectorAll("#printArea [data-kw]").forEach((el) => {
     const key = el.getAttribute("data-kw");
     if (key && key in values) el.innerText = values[key];
   });
-  // Kompatibilitas id lama (copy 1, hidden)
-  setText("kwId", values.id);
-  setText("kwTanggal", values.tanggal);
-  setText("kwNis", values.nis);
-  setText("kwNama", values.nama);
-  setText("kwKelas", values.kelas);
-  setText("kwJumlah", values.jumlah);
-  setText("kwTerbilang", values.terbilang);
-  setText("kwKet", values.ket);
-  setText("kwPetugas", values.petugas);
-  setText("kwTtdPetugas", values.ttdPetugas);
-  setText("kwTglTtd", values.tglTtd);
-
   const modal = document.getElementById("modalKwitansi");
   modal.classList.remove("hidden");
   modal.classList.add("flex");
@@ -309,11 +267,6 @@ export function hideKwitansi() {
   modal.classList.remove("flex");
 }
 
-/**
- * Konfirmasi hapus cantik pengganti confirm() bawaan browser.
- * Pakai SweetAlert2 bila tersedia, fallback ke confirm() bila offline.
- * @returns {Promise<boolean>} true bila user menekan tombol hapus
- */
 export function confirmDelete({ title = "Hapus data?", html = "Data yang dihapus tidak bisa dikembalikan.", confirmText = "Ya, hapus", cancelText = "Batal" } = {}) {
   if (typeof window.Swal === "undefined") {
     return Promise.resolve(window.confirm(`${title}\n\n${String(html).replace(/<[^>]*>/g, "")}`));
@@ -345,9 +298,6 @@ export function confirmDelete({ title = "Hapus data?", html = "Data yang dihapus
   }).then((r) => r.isConfirmed === true);
 }
 
-/**
- * @param {string} role - 'admin' atau 'bendahara'
- */
 export function applyRoleAccess(role) {
   const isAdmin = role === "admin";
   document.querySelectorAll(".admin-only").forEach((el) => {

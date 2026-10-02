@@ -1,10 +1,4 @@
-/**
- * Helper untuk men-download file string (CSV) langsung dari browser
- * @param {string} content - Konten teks file
- * @param {string} filename - Nama file yang akan diunduh
- */
 function downloadFile(content, filename) {
-  // \uFEFF adalah UTF-8 Byte Order Mark (BOM) agar Excel membaca huruf Indonesia dengan benar
   const blob = new Blob(["\uFEFF" + content], {
     type: "text/csv;charset=utf-8;",
   });
@@ -20,8 +14,6 @@ function downloadFile(content, filename) {
   URL.revokeObjectURL(url);
 }
 
-// Pemisah kolom memakai titik-koma karena Excel Indonesia
-// memecah kolom berdasarkan ";" (bukan koma, koma dipakai untuk desimal).
 const SEP = ";";
 
 function textCell(val) {
@@ -32,10 +24,6 @@ function numCell(val) {
   return String(Number(val) || 0);
 }
 
-/**
- *
- * @param {Array} students - Data dari view v_student_recap
- */
 export function exportRekapToCSV(students) {
   if (!students || students.length === 0) {
     alert("Tidak ada data rekap siswa untuk diexport!");
@@ -70,10 +58,6 @@ export function exportRekapToCSV(students) {
   downloadFile(csvContent, filename);
 }
 
-/**
- *
- * @param {Array} history - Data dari view v_payment_history
- */
 export function exportHistoryToCSV(history) {
   if (!history || history.length === 0) {
     alert("Tidak ada data transaksi untuk diexport!");

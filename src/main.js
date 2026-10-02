@@ -28,22 +28,15 @@ import {
 } from "./ui.js";
 import { exportRekapToCSV, exportHistoryToCSV } from "./export.js";
 
-// Cache state di memori browser
 let globalStudents = [];
 let globalHistory = [];
 let currentActiveTab = "dashboard";
-// Query titipan dari navbar search saat pindah ke halaman siswa
 let pendingNavQuery = "";
-// Filter status aktif: all, Lunas, Cicilan, belum
 let siswaStatusFilter = "all";
 let rekapStatusFilter = "all";
-// Kelas terpilih di rekap, "" = semua kelas
 let rekapKelasFilter = "";
-// Role login saat ini, untuk tombol Ubah/Hapus (khusus admin)
 let currentRole = "";
-// ID siswa yang sedang diubah, "" = mode tambah baru
 let editingId = "";
-// Instance grafik dashboard agar bisa digambar ulang
 let chartHarian = null;
 
 function isAdmin() {
@@ -74,7 +67,6 @@ function filteredSiswa(q, statusF, kelasF) {
 function applySiswaView() {
   renderStudentTable(
     filteredSiswa(document.getElementById("searchSiswa")?.value, siswaStatusFilter, ""),
-    globalStudents.length,
     { canEdit: isAdmin(), onEdit: openEditStudent, onDelete: confirmDeleteStudent }
   );
 }
@@ -93,20 +85,13 @@ function applyRiwayatView() {
   renderPaymentHistory(
     shown,
     (trx) => showKwitansi(trx),
-    globalHistory.length,
     { canDelete: isAdmin(), onDelete: confirmDeletePayment }
   );
-  const totalEl = document.getElementById("totalTampil");
-  if (totalEl) {
-    const sum = shown.reduce((a, h) => a + (Number(h.jumlah_bayar ?? h.amount) || 0), 0);
-    totalEl.innerText = `Total tampil: ${formatRupiah(sum)}`;
-  }
 }
 
 function applyRekapView() {
   renderLaporanTable(
-    filteredSiswa(document.getElementById("searchRekap")?.value, rekapStatusFilter, rekapKelasFilter),
-    globalStudents.length
+    filteredSiswa(document.getElementById("searchRekap")?.value, rekapStatusFilter, rekapKelasFilter)
   );
 }
 
@@ -160,7 +145,6 @@ function showLoginView() {
   document.getElementById("loginSection").classList.remove("hidden");
 }
 
-// Tab aktif navbar atas: solid indigo, nonaktif teks slate
 function switchTab(tabName) {
   currentActiveTab = tabName;
 
@@ -183,14 +167,12 @@ function switchTab(tabName) {
     tabBtn.setAttribute("aria-current", "page");
   }
 
-  // Fetch data sesuai tab
   if (tabName === "dashboard") loadDashboard();
   if (tabName === "siswa") loadSiswa();
   if (tabName === "bayar") prepareFormBayar();
   if (tabName === "riwayat") loadRiwayat();
   if (tabName === "laporan") loadLaporan();
 
-  // Tutup panel navbar mobile setelah pindah halaman + samakan status tombol mobile
   const panel = document.getElementById("mobileNavPanel");
   if (panel) panel.classList.add("hidden");
   document.querySelectorAll(".nav-goto").forEach((b) => {
@@ -281,7 +263,6 @@ async function loadSiswa() {
   const res = await getStudentsRecap();
   if (res.success) {
     globalStudents = res.data;
-    // Terapkan query titipan dari navbar search (misal dari dashboard/kasir)
     const q = pendingNavQuery.trim().toLowerCase();
     pendingNavQuery = "";
     if (q) {
@@ -295,7 +276,6 @@ async function loadSiswa() {
   }
 }
 
-// Kata kunci saring daftar di form bayar (tidak mengubah data)
 let bayarQuery = "";
 
 function applyBayarSelectFilter() {
@@ -356,7 +336,6 @@ function populateKelasFilter() {
     opt.textContent = k;
     sel.appendChild(opt);
   });
-  // Pertahankan pilihan bila kelasnya masih ada
   sel.value = kelasList.includes(current) ? current : "";
   rekapKelasFilter = sel.value;
 }
@@ -435,25 +414,21 @@ function setupEventListeners() {
     }
   });
 
-  // Live search tabel siswa
   const searchSiswa = document.getElementById("searchSiswa");
   if (searchSiswa) {
     searchSiswa.addEventListener("input", applySiswaView);
   }
 
-  // Live search riwayat
   const searchRiwayat = document.getElementById("searchRiwayat");
   if (searchRiwayat) {
     searchRiwayat.addEventListener("input", applyRiwayatView);
   }
 
-  // Live search rekap
   const searchRekap = document.getElementById("searchRekap");
   if (searchRekap) {
     searchRekap.addEventListener("input", applyRekapView);
   }
 
-  // Saring dropdown siswa di form bayar
   const searchBayar = document.getElementById("searchBayar");
   if (searchBayar) {
     searchBayar.addEventListener("input", () => {
@@ -462,7 +437,6 @@ function setupEventListeners() {
     });
   }
 
-  // Filter status siswa + rekap
   document.querySelectorAll(".fs-chip").forEach((b) => {
     b.addEventListener("click", () => {
       siswaStatusFilter = b.dataset.fs;
@@ -478,8 +452,6 @@ function setupEventListeners() {
     });
   });
 
-  // Search di navbar: filter halaman yang sedang dibuka.
-  // Kalau posisi di dashboard/kasir, Enter akan pindah ke Data Siswa + filter.
   const navSearch = document.getElementById("navSearch");
   const navSearchMobile = document.getElementById("navSearchMobile");
   const syncNavBoxes = (val, except) => {
@@ -502,8 +474,6 @@ function setupEventListeners() {
       if (box) box.value = raw;
       applyRekapView();
     }
-    // Di dashboard/kasir: ketik saja tidak memindah halaman,
-    // pindahnya saat tekan Enter (lihat keydown di bawah).
   };
   [navSearch, navSearchMobile].forEach((box) => {
     if (!box) return;
@@ -597,14 +567,12 @@ function setupEventListeners() {
     }
   });
 
-  // Filter tanggal riwayat + tombol kembali ke semua tanggal
   document.getElementById("filterTanggal")?.addEventListener("change", applyRiwayatView);
   document.getElementById("btnResetTanggal")?.addEventListener("click", () => {
     document.getElementById("filterTanggal").value = "";
     applyRiwayatView();
   });
 
-  // Filter kelas di rekap
   document.getElementById("filterKelasRekap")?.addEventListener("change", (e) => {
     rekapKelasFilter = e.target.value;
     applyRekapView();
@@ -612,7 +580,6 @@ function setupEventListeners() {
 
   document.getElementById("btnTutupKwitansi").addEventListener("click", hideKwitansi);
 
-  // Escape menutup modal mana pun yang sedang terbuka
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       hideKwitansi();
@@ -620,7 +587,6 @@ function setupEventListeners() {
     }
   });
 
-  // Tutup modal klik backdrop
   ["modalSiswa", "modalKwitansi"].forEach((id) => {
     document.getElementById(id)?.addEventListener("click", (e) => {
       if (e.target.id === id) {
@@ -669,10 +635,6 @@ function openEditStudent(s) {
 }
 
 async function confirmDeleteStudent(s) {
-  if (Number(s.total_terbayar) > 0) {
-    toast("Siswa ini sudah ada pembayarannya, tidak bisa dihapus.", "error");
-    return;
-  }
   const ok = await confirmDelete({
     html: `Data siswa akan dihapus permanen dan tidak bisa dikembalikan.`,
     confirmText: "Ya, Hapus",
