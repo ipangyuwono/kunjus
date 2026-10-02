@@ -107,6 +107,127 @@ export async function addStudent(payload) {
 }
 
 /**
+ * Ubah data siswa (NIS, nama, kelas, tagihan)
+ * @param {string} id
+ * @param {{ nis: string, nama: string, kelas: string, total_tagihan: number }} payload
+ */
+export async function updateStudent(id, payload) {
+  try {
+    const { data, error } = await supabase
+      .from("students")
+      .update({
+        nis: payload.nis.trim(),
+        nama: payload.nama.trim(),
+        kelas: payload.kelas.trim(),
+        total_tagihan: Number(payload.total_tagihan),
+      })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === "23505") {
+        return { success: false, message: `NIS "${payload.nis}" sudah dipakai siswa lain!` };
+      }
+      return { success: false, message: error.message };
+    }
+
+    return { success: true, message: "Data siswa berhasil diubah!", data };
+  } catch (err) {
+    console.error("Error updateStudent:", err);
+    return { success: false, message: err.message };
+  }
+}
+
+/**
+ * Hapus siswa. Hanya bila belum ada pembayaran (diputus di UI, dicek ulang di sini).
+ * @param {{ id: string, total_terbayar: number }} s
+ */
+export async function deleteStudent(s) {
+  try {
+    if (Number(s.total_terbayar) > 0) {
+      return { success: false, message: "Siswa ini sudah ada pembayarannya, tidak bisa dihapus." };
+    }
+    const { error } = await supabase.from("students").delete().eq("id", s.id);
+    if (error) throw error;
+    return { success: true, message: "Data siswa dihapus." };
+  } catch (err) {
+    console.error("Error deleteStudent:", err);
+    return { success: false, message: err.message };
+  }
+}
+
+/**
+ * Hapus transaksi berdasarkan kode (TRX-001, ...).
+ * ID payment dicari dulu lewat kode agar tidak tergantung kolom view.
+ * @param {string} trxCode
+ */
+export async function deletePaymentByCode(trxCode) {
+  try {
+    const { data: row, error: errFind } = await supabase
+      .from("payments")
+      .select("id")
+      .eq("trx_code", trxCode)
+      .single();
+
+    if (errFind || !row) {
+      return { success: false, message: "Transaksi tidak ditemukan." };
+    }
+
+    const { error: errDel } = await supabase.from("payments").delete().eq("id", row.id);
+    if (errDel) throw errDel;
+    return { success: true, message: `Transaksi ${trxCode} dihapus.` };
+  } catch (err) {
+    console.error("Error deletePaymentByCode:", err);
+    return { success: false, message: err.message };
+  }
+}
+
+/**
+ * Total pemasukan per hari selama N hari terakhir (untuk grafik dashboard).
+ * @param {number} days
+ * @returns {Promise<{ success: boolean, data?: Array<{key: string, label: string, total: number}>, message?: string }>}
+ */
+export async function getDailyTotals(days = 14) {
+  try {
+    const since = new Date();
+    since.setDate(since.getDate() - (days - 1));
+    since.setHours(0, 0, 0, 0);
+
+    const { data, error } = await supabase
+      .from("payments")
+      .select("amount, created_at")
+      .gte("created_at", since.toISOString());
+
+    if (error) throw error;
+
+    const buckets = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      buckets.push({
+        key,
+        label: d.toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
+        total: 0,
+      });
+    }
+    const byKey = Object.fromEntries(buckets.map((b) => [b.key, b]));
+
+    (data || []).forEach((r) => {
+      const d = new Date(r.created_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      if (byKey[key]) byKey[key].total += Number(r.amount) || 0;
+    });
+
+    return { success: true, data: buckets };
+  } catch (err) {
+    console.error("Error getDailyTotals:", err);
+    return { success: false, message: err.message };
+  }
+}
+
+/**
  * 4. Simpan Transaksi Pembayaran
  * @param {{ student_id: string, amount: number, notes?: string }} payload
  */
