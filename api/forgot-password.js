@@ -1,21 +1,16 @@
-const { createClient } = require('@supabase/supabase-js');
+const { getSupabase } = require('./_lib/supabase');
 const crypto = require('crypto');
-
-function clean(v) {
-  return (v || '').toString().trim().replace(/^["']|["';]+$/g, '').trim();
-}
-
-function getSupabase() {
-  const url = clean(process.env.SUPABASE_URL);
-  const key = clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
-  if (!url || !key) throw new Error('SUPABASE_URL / SERVICE_ROLE_KEY belum diset di .env (server).');
-  return createClient(url, key);
-}
+const { checkRateLimit, isValidEmail, escapeHtml, hashToken } = require('./_lib/security');
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed. Gunakan POST.' });
+  }
+
+  const rl = checkRateLimit(req, { limit: 5, windowMs: 10 * 60 * 1000 });
+  if (!rl.allowed) {
+    return res.status(429).json({ error: `Terlalu banyak permintaan. Coba lagi dalam ${rl.retryAfterSec} detik.` });
   }
 
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -29,6 +24,9 @@ module.exports = async (req, res) => {
   const email = (body?.email || '').toString().trim();
   if (!email) {
     return res.status(400).json({ error: 'Email wajib diisi.' });
+  }
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ error: 'Format email tidak valid.' });
   }
 
   try {
@@ -46,12 +44,13 @@ module.exports = async (req, res) => {
     }
 
     const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = hashToken(token);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
     await supabase.from('password_resets').delete().eq('email', user.email);
     const { error: insertError } = await supabase
       .from('password_resets')
-      .insert([{ email: user.email, token, expires_at: expiresAt }]);
+      .insert([{ email: user.email, token: tokenHash, expires_at: expiresAt }]);
 
     if (insertError) throw insertError;
 
@@ -84,7 +83,7 @@ module.exports = async (req, res) => {
                 <p style="font-size:13px;color:#475569;margin:0 0 18px;">Halo, kami menerima permintaan reset kata sandi untuk akun di bawah ini. Klik tombol untuk melanjutkan.</p>
                 <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;margin:0 0 20px;">
                   <p style="font-size:10px;font-weight:700;letter-spacing:1px;color:#94a3b8;margin:0 0 2px;">AKUN</p>
-                  <p style="font-size:14px;font-weight:700;color:#0f172a;margin:0;">${email}</p>
+                  <p style="font-size:14px;font-weight:700;color:#0f172a;margin:0;">${escapeHtml(email)}</p>
                 </div>
                 <div style="text-align:center;margin:0 0 8px;">
                   <a href="${resetLink}" style="display:block;background-color:#4f46e5;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;text-align:center;padding:13px 24px;border-radius:10px;">Ganti Password Baru</a>
@@ -101,14 +100,14 @@ module.exports = async (req, res) => {
     });
 
     if (!brevoRes.ok) {
-      const errBrevo = await brevoRes.json().catch(() => ({}));
-      console.error('Brevo gagal:', brevoRes.status, errBrevo);
-      throw new Error(`Brevo ${brevoRes.status}: ${errBrevo.message || JSON.stringify(errBrevo)}`);
+      await brevoRes.json().catch(() => ({}));
+      console.error('Brevo gagal:', brevoRes.status);
+      throw new Error('Gagal mengirim email reset. Coba lagi.');
     }
 
     return res.status(200).json({ success: true, message: 'Email reset password berhasil dikirim.' });
   } catch (err) {
     console.error('Error forgot-password:', err.message);
-    return res.status(500).json({ error: err.message || 'Terjadi kesalahan pada server.' });
+    return res.status(500).json({ error: 'Terjadi kesalahan pada server.' });
   }
 };

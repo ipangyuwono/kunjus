@@ -1,4 +1,4 @@
-import { supabase } from "./config.js";
+import { supabase } from "../lib/supabase-client.js";
 import { getCurrentUser } from "./auth.js";
 
 export async function getDashboardData() {

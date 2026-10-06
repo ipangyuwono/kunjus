@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/forgot-password.js": { "maxDuration": 10 },
+    "api/reset-password.js": { "maxDuration": 10 }
+  }
+}

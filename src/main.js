@@ -1,99 +1,37 @@
-import { loginUser, logoutUser, checkCurrentSession } from "./auth.js";
+import { loginUser, logoutUser, checkCurrentSession } from "./services/auth.js";
 import {
-  getDashboardData,
-  getStudentsRecap,
   addStudent,
   updateStudent,
   deleteStudent,
   createPayment,
   deletePaymentByCode,
   getPaymentHistory,
-  getDailyTotals
-} from "./db.js";
+} from "./services/db.js";
 import {
-  renderDashboard,
-  renderStudentTable,
-  renderPaymentHistory,
-  renderLaporanTable,
-  populateSiswaSelect,
   showKwitansi,
   hideKwitansi,
   applyRoleAccess,
   formatRupiah,
   toast,
-  showTableLoading,
-  showTableError,
   confirmDelete,
-  escapeHtml
-} from "./ui.js";
-import { exportRekapToCSV, exportHistoryToCSV } from "./export.js";
+  escapeHtml,
+} from "./lib/ui.js";
+import { exportRekapToCSV, exportHistoryToCSV } from "./lib/export.js";
+import { store } from "./services/store.js";
+import { loadDashboard } from "./pages/dashboard.js";
+import { loadSiswa, applySiswaView, filteredSiswa } from "./pages/siswa.js";
+import { prepareFormBayar, applyBayarSelectFilter, resetFormBayarDetails } from "./pages/bayar.js";
+import { loadRiwayat, applyRiwayatView, filteredRiwayat } from "./pages/riwayat.js";
+import { loadLaporan, applyRekapView } from "./pages/laporan.js";
 
-let globalStudents = [];
-let globalHistory = [];
 let currentActiveTab = "dashboard";
-let pendingNavQuery = "";
-let siswaStatusFilter = "all";
-let rekapStatusFilter = "all";
-let rekapKelasFilter = "";
-let currentRole = "";
 let editingId = "";
-let chartHarian = null;
 
-function isAdmin() {
-  return currentRole === "admin";
-}
-
-function localDateKey(isoString) {
-  const d = new Date(isoString);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function matchStatus(s, f) {
-  if (f === "all") return true;
-  if (f === "Lunas") return s.status === "Lunas";
-  if (f === "Cicilan") return s.status === "Cicilan";
-  return s.status !== "Lunas" && s.status !== "Cicilan";
-}
-
-function filteredSiswa(q, statusF, kelasF) {
-  const query = (q ?? "").toLowerCase();
-  return globalStudents.filter((s) =>
-    matchStatus(s, statusF) &&
-    (!kelasF || s.kelas === kelasF) &&
-    `${s.nis} ${s.nama} ${s.kelas}`.toLowerCase().includes(query)
-  );
-}
-
-function applySiswaView() {
-  renderStudentTable(
-    filteredSiswa(document.getElementById("searchSiswa")?.value, siswaStatusFilter, ""),
-    { canEdit: isAdmin(), onEdit: openEditStudent, onDelete: confirmDeleteStudent }
-  );
-}
-
-function filteredRiwayat() {
-  const q = (document.getElementById("searchRiwayat")?.value || "").toLowerCase();
-  const tgl = document.getElementById("filterTanggal")?.value || "";
-  return globalHistory.filter((h) =>
-    (!tgl || localDateKey(h.created_at) === tgl) &&
-    `${h.trx_code} ${h.nis} ${h.nama_siswa}`.toLowerCase().includes(q)
-  );
-}
-
-function applyRiwayatView() {
-  const shown = filteredRiwayat();
-  renderPaymentHistory(
-    shown,
-    (trx) => showKwitansi(trx),
-    { canDelete: isAdmin(), onDelete: confirmDeletePayment }
-  );
-}
-
-function applyRekapView() {
-  renderLaporanTable(
-    filteredSiswa(document.getElementById("searchRekap")?.value, rekapStatusFilter, rekapKelasFilter)
-  );
-}
+const pageCallbacks = {
+  onEdit: openEditStudent,
+  onDelete: confirmDeleteStudent,
+  onDeletePayment: confirmDeletePayment,
+};
 
 function paintChips(selector, activeVal) {
   document.querySelectorAll(selector).forEach((b) => {
@@ -120,7 +58,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 function onLoginSuccess(userProfile) {
-  currentRole = userProfile.role || "";
+  store.role = userProfile.role || "";
   document.getElementById("navUserNama").innerText = userProfile.nama;
   document.getElementById("navUserRole").innerText = userProfile.role.toUpperCase();
   const topbarName = document.getElementById("topbarUserNama");
@@ -168,9 +106,9 @@ function switchTab(tabName) {
   }
 
   if (tabName === "dashboard") loadDashboard();
-  if (tabName === "siswa") loadSiswa();
+  if (tabName === "siswa") loadSiswa(pageCallbacks);
   if (tabName === "bayar") prepareFormBayar();
-  if (tabName === "riwayat") loadRiwayat();
+  if (tabName === "riwayat") loadRiwayat({ onDelete: confirmDeletePayment });
   if (tabName === "laporan") loadLaporan();
 
   const panel = document.getElementById("mobileNavPanel");
@@ -181,163 +119,6 @@ function switchTab(tabName) {
     b.classList.toggle("text-indigo-700", active);
     b.classList.toggle("text-slate-700", !active);
   });
-}
-
-async function loadDashboard() {
-  ["dashTotalSiswa", "dashSiswaLunas", "dashSiswaBelumLunas", "dashTotalTrx"].forEach((id) => {
-    document.getElementById(id).innerText = "…";
-  });
-  const res = await getDashboardData();
-  if (res.success) {
-    renderDashboard(res.data);
-  } else {
-    ["dashTotalSiswa", "dashSiswaLunas", "dashSiswaBelumLunas", "dashTotalTrx"].forEach((id) => {
-      document.getElementById(id).innerText = "0";
-    });
-    toast("Gagal memuat dashboard: " + res.message, "error");
-  }
-  loadChart();
-}
-
-async function loadChart() {
-  const canvas = document.getElementById("chartHarian");
-  const emptyNote = document.getElementById("chartEmpty");
-  if (!canvas || typeof window.Chart === "undefined") {
-    if (emptyNote) {
-      emptyNote.classList.remove("hidden");
-      emptyNote.innerText = "Grafik tidak bisa dimuat (pustaka chart offline).";
-    }
-    return;
-  }
-  const res = await getDailyTotals(14);
-  if (!res.success) {
-    if (emptyNote) {
-      emptyNote.classList.remove("hidden");
-      emptyNote.innerText = "Grafik gagal dimuat: " + res.message;
-    }
-    return;
-  }
-  const allZero = res.data.every((d) => d.total === 0);
-  if (emptyNote) emptyNote.classList.toggle("hidden", !allZero);
-
-  if (chartHarian) chartHarian.destroy();
-  chartHarian = new window.Chart(canvas, {
-    type: "bar",
-    data: {
-      labels: res.data.map((d) => d.label),
-      datasets: [{
-        label: "Pemasukan (Rp)",
-        data: res.data.map((d) => d.total),
-        backgroundColor: "#4f46e5",
-        borderRadius: 4,
-      }],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => " " + formatRupiah(ctx.parsed.y),
-          },
-        },
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: {
-            maxTicksLimit: 5,
-            callback: (v) => v >= 1000000
-              ? "Rp" + (v / 1000000).toLocaleString("id-ID", { maximumFractionDigits: 1 }) + " jt"
-              : "Rp" + Math.round(v / 1000) + " rb",
-          },
-        },
-      },
-    },
-  });
-}
-
-async function loadSiswa() {
-  showTableLoading("tabelDataSiswa", 8);
-  const res = await getStudentsRecap();
-  if (res.success) {
-    globalStudents = res.data;
-    const q = pendingNavQuery.trim().toLowerCase();
-    pendingNavQuery = "";
-    if (q) {
-      const box = document.getElementById("searchSiswa");
-      if (box) box.value = q;
-    }
-    applySiswaView();
-  } else {
-    showTableError("tabelDataSiswa", 8, res.message);
-    toast("Gagal memuat siswa: " + res.message, "error");
-  }
-}
-
-let bayarQuery = "";
-
-function applyBayarSelectFilter() {
-  const q = (bayarQuery || "").toLowerCase().trim();
-  const filtered = !q
-    ? globalStudents
-    : globalStudents.filter((s) =>
-        `${s.nis} ${s.nama} ${s.kelas}`.toLowerCase().includes(q)
-      );
-  populateSiswaSelect(filtered);
-}
-
-async function prepareFormBayar() {
-  const res = await getStudentsRecap();
-  if (res.success) {
-    globalStudents = res.data;
-    bayarQuery = "";
-    const box = document.getElementById("searchBayar");
-    if (box) box.value = "";
-    populateSiswaSelect(globalStudents);
-    resetFormBayarDetails();
-  }
-}
-
-async function loadRiwayat() {
-  showTableLoading("tabelRiwayat", 8);
-  const res = await getPaymentHistory();
-  if (res.success) {
-    globalHistory = res.data;
-    applyRiwayatView();
-  } else {
-    showTableError("tabelRiwayat", 8, res.message);
-    toast("Gagal memuat riwayat: " + res.message, "error");
-  }
-}
-
-async function loadLaporan() {
-  showTableLoading("tabelLaporanRekap", 7);
-  const res = await getStudentsRecap();
-  if (res.success) {
-    globalStudents = res.data;
-    populateKelasFilter();
-    applyRekapView();
-  } else {
-    showTableError("tabelLaporanRekap", 7, res.message);
-  }
-}
-
-function populateKelasFilter() {
-  const sel = document.getElementById("filterKelasRekap");
-  if (!sel) return;
-  const kelasList = [...new Set(globalStudents.map((s) => s.kelas).filter(Boolean))].sort();
-  const current = sel.value;
-  sel.innerHTML = '<option value="">Semua kelas</option>';
-  kelasList.forEach((k) => {
-    const opt = document.createElement("option");
-    opt.value = k;
-    opt.textContent = k;
-    sel.appendChild(opt);
-  });
-  sel.value = kelasList.includes(current) ? current : "";
-  rekapKelasFilter = sel.value;
 }
 
 function setupNavbarMobile() {
@@ -397,7 +178,7 @@ function setupEventListeners() {
   const selectSiswa = document.getElementById("selectSiswa");
   selectSiswa.addEventListener("change", () => {
     const studentId = selectSiswa.value;
-    const s = globalStudents.find((item) => String(item.id) === String(studentId));
+    const s = store.students.find((item) => String(item.id) === String(studentId));
 
     if (s) {
       const sisa = Number(s.sisa_tagihan) || 0;
@@ -416,12 +197,12 @@ function setupEventListeners() {
 
   const searchSiswa = document.getElementById("searchSiswa");
   if (searchSiswa) {
-    searchSiswa.addEventListener("input", applySiswaView);
+    searchSiswa.addEventListener("input", () => applySiswaView(pageCallbacks));
   }
 
   const searchRiwayat = document.getElementById("searchRiwayat");
   if (searchRiwayat) {
-    searchRiwayat.addEventListener("input", applyRiwayatView);
+    searchRiwayat.addEventListener("input", () => applyRiwayatView({ onDelete: confirmDeletePayment }));
   }
 
   const searchRekap = document.getElementById("searchRekap");
@@ -432,22 +213,22 @@ function setupEventListeners() {
   const searchBayar = document.getElementById("searchBayar");
   if (searchBayar) {
     searchBayar.addEventListener("input", () => {
-      bayarQuery = searchBayar.value;
+      store.bayarQuery = searchBayar.value;
       applyBayarSelectFilter();
     });
   }
 
   document.querySelectorAll(".fs-chip").forEach((b) => {
     b.addEventListener("click", () => {
-      siswaStatusFilter = b.dataset.fs;
-      paintChips(".fs-chip", siswaStatusFilter);
-      applySiswaView();
+      store.siswaFilter = b.dataset.fs;
+      paintChips(".fs-chip", store.siswaFilter);
+      applySiswaView(pageCallbacks);
     });
   });
   document.querySelectorAll(".fr-chip").forEach((b) => {
     b.addEventListener("click", () => {
-      rekapStatusFilter = b.dataset.fr;
-      paintChips(".fr-chip", rekapStatusFilter);
+      store.rekapFilter = b.dataset.fr;
+      paintChips(".fr-chip", store.rekapFilter);
       applyRekapView();
     });
   });
@@ -464,11 +245,11 @@ function setupEventListeners() {
     if (currentActiveTab === "siswa") {
       const box = document.getElementById("searchSiswa");
       if (box) box.value = raw;
-      applySiswaView();
+      applySiswaView(pageCallbacks);
     } else if (currentActiveTab === "riwayat") {
       const box = document.getElementById("searchRiwayat");
       if (box) box.value = raw;
-      applyRiwayatView();
+      applyRiwayatView({ onDelete: confirmDeletePayment });
     } else if (currentActiveTab === "laporan") {
       const box = document.getElementById("searchRekap");
       if (box) box.value = raw;
@@ -482,7 +263,7 @@ function setupEventListeners() {
       if (e.key === "Enter") {
         e.preventDefault();
         if (currentActiveTab !== "siswa" && currentActiveTab !== "riwayat" && currentActiveTab !== "laporan") {
-          pendingNavQuery = box.value;
+          store.pendingNavQuery = box.value;
           switchTab("siswa");
         }
       }
@@ -561,20 +342,22 @@ function setupEventListeners() {
       closeModalSiswa();
       document.getElementById("formTambahSiswa").reset();
       document.getElementById("addTagihan").value = 500000;
-      loadSiswa();
+      loadSiswa(pageCallbacks);
     } else {
       toast("Gagal menyimpan siswa: " + res.message, "error");
     }
   });
 
-  document.getElementById("filterTanggal")?.addEventListener("change", applyRiwayatView);
+  document.getElementById("filterTanggal")?.addEventListener("change", () =>
+    applyRiwayatView({ onDelete: confirmDeletePayment })
+  );
   document.getElementById("btnResetTanggal")?.addEventListener("click", () => {
     document.getElementById("filterTanggal").value = "";
-    applyRiwayatView();
+    applyRiwayatView({ onDelete: confirmDeletePayment });
   });
 
   document.getElementById("filterKelasRekap")?.addEventListener("change", (e) => {
-    rekapKelasFilter = e.target.value;
+    store.rekapKelas = e.target.value;
     applyRekapView();
   });
 
@@ -597,13 +380,13 @@ function setupEventListeners() {
   });
 
   document.getElementById("btnExportRekap").addEventListener("click", () => {
-    exportRekapToCSV(filteredSiswa(document.getElementById("searchRekap")?.value, rekapStatusFilter, rekapKelasFilter));
+    exportRekapToCSV(filteredSiswa(document.getElementById("searchRekap")?.value, store.rekapFilter, store.rekapKelas));
   });
 
   document.getElementById("btnExportRiwayat").addEventListener("click", async () => {
-    if (globalHistory.length === 0) {
+    if (store.history.length === 0) {
       const res = await getPaymentHistory();
-      if (res.success) globalHistory = res.data;
+      if (res.success) store.history = res.data;
     }
     exportHistoryToCSV(filteredRiwayat());
   });
@@ -643,7 +426,7 @@ async function confirmDeleteStudent(s) {
   const res = await deleteStudent(s);
   if (res.success) {
     toast(res.message, "success");
-    loadSiswa();
+    loadSiswa(pageCallbacks);
   } else {
     toast("Gagal menghapus: " + res.message, "error");
   }
@@ -660,7 +443,7 @@ async function confirmDeletePayment(h) {
   const res = await deletePaymentByCode(h.trx_code);
   if (res.success) {
     toast(res.message, "success");
-    loadRiwayat();
+    loadRiwayat({ onDelete: confirmDeletePayment });
   } else {
     toast("Gagal menghapus: " + res.message, "error");
   }
@@ -669,12 +452,4 @@ async function confirmDeletePayment(h) {
 function closeModalSiswa() {
   document.getElementById("modalSiswa").classList.add("hidden");
   document.getElementById("modalSiswa").classList.remove("flex");
-}
-
-function resetFormBayarDetails() {
-  document.getElementById("bayarNama").value = "";
-  document.getElementById("bayarKelas").value = "";
-  document.getElementById("bayarSisaTagihan").value = "";
-  document.getElementById("bayarNominal").value = "";
-  document.getElementById("bayarNominal").removeAttribute("max");
 }

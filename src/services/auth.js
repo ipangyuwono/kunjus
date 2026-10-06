@@ -1,4 +1,4 @@
-import { supabase } from "./config.js";
+import { supabase } from "../lib/supabase-client.js";
 
 let currentUserProfile = null;
 
