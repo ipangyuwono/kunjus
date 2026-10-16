@@ -2,13 +2,27 @@ const { getSupabase } = require('./_lib/supabase');
 const crypto = require('crypto');
 const { checkRateLimit, isValidEmail, escapeHtml, hashToken } = require('./_lib/security');
 
+async function findUserByEmail(supabase, email) {
+  const target = email.toLowerCase();
+  let page = 1;
+  const perPage = 100;
+  for (;;) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+    if (error) throw error;
+    const found = data.users.find((u) => (u.email || '').toLowerCase() === target);
+    if (found) return found;
+    if (data.users.length < perPage || page >= 20) return null;
+    page += 1;
+  }
+}
+
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed. Gunakan POST.' });
   }
 
-  const rl = checkRateLimit(req, { limit: 5, windowMs: 10 * 60 * 1000 });
+  const rl = checkRateLimit(req, { key: 'forgot', limit: 5, windowMs: 10 * 60 * 1000 });
   if (!rl.allowed) {
     return res.status(429).json({ error: `Terlalu banyak permintaan. Coba lagi dalam ${rl.retryAfterSec} detik.` });
   }
@@ -24,17 +38,14 @@ module.exports = async (req, res) => {
   const email = (body?.email || '').toString().trim();
   if (!email) {
     return res.status(400).json({ error: 'Email wajib diisi.' });
-  }
+  } 
   if (!isValidEmail(email)) {
     return res.status(400).json({ error: 'Format email tidak valid.' });
   }
 
   try {
     const supabase = getSupabase();
-    const { data: usersData, error: userError } = await supabase.auth.admin.listUsers();
-    if (userError) throw userError;
-
-    const user = usersData.users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+    const user = await findUserByEmail(supabase, email);
 
     if (!user) {
       return res.status(200).json({ 
@@ -56,6 +67,10 @@ module.exports = async (req, res) => {
 
     const appUrl = process.env.APP_URL || 'https://kunjus.vercel.app';
     const resetLink = `${appUrl}/reset-password.html?token=${token}`;
+
+    if (!process.env.BREVO_API_KEY) {
+      return res.status(500).json({ error: 'BREVO_API_KEY belum diset di env server.' });
+    }
 
     const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
@@ -100,14 +115,16 @@ module.exports = async (req, res) => {
     });
 
     if (!brevoRes.ok) {
-      await brevoRes.json().catch(() => ({}));
-      console.error('Brevo gagal:', brevoRes.status);
-      throw new Error('Gagal mengirim email reset. Coba lagi.');
+      const errBrevo = await brevoRes.json().catch(() => ({}));
+      const detail = errBrevo.message || JSON.stringify(errBrevo).slice(0, 300);
+      console.error('Brevo gagal:', brevoRes.status, detail);
+      await supabase.from('password_resets').delete().eq('email', user.email);
+      throw new Error(`Brevo ${brevoRes.status}: ${detail || 'gagal mengirim email'}`);
     }
 
     return res.status(200).json({ success: true, message: 'Email reset password berhasil dikirim.' });
   } catch (err) {
     console.error('Error forgot-password:', err.message);
-    return res.status(500).json({ error: 'Terjadi kesalahan pada server.' });
+    return res.status(500).json({ error: err.message || 'Terjadi kesalahan pada server.' });
   }
 };

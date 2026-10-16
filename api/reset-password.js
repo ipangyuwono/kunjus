@@ -7,7 +7,7 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed. Gunakan POST.' });
   }
 
-  const rl = checkRateLimit(req, { limit: 10, windowMs: 10 * 60 * 1000 });
+  const rl = checkRateLimit(req, { key: 'reset', limit: 10, windowMs: 10 * 60 * 1000 });
   if (!rl.allowed) {
     return res.status(429).json({ error: `Terlalu banyak percobaan. Coba lagi dalam ${rl.retryAfterSec} detik.` });
   }
@@ -53,10 +53,16 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Token sudah kedaluwarsa. Silakan ajukan lupa password ulang.' });
     }
 
-    const { data: usersData, error: listError } = await supabase.auth.admin.listUsers();
-    if (listError) throw listError;
-
-    const user = usersData.users.find((u) => u.email.toLowerCase() === resetEntry.email.toLowerCase());
+    const target = resetEntry.email.toLowerCase();
+    let user = null;
+    let page = 1;
+    for (;;) {
+      const { data: usersData, error: listError } = await supabase.auth.admin.listUsers({ page, perPage: 100 });
+      if (listError) throw listError;
+      user = usersData.users.find((u) => (u.email || '').toLowerCase() === target);
+      if (user || usersData.users.length < 100 || page >= 20) break;
+      page += 1;
+    }
 
     if (!user) {
       return res.status(404).json({ error: 'Akun user tidak ditemukan.' });

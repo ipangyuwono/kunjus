@@ -8,16 +8,16 @@ function getIP(req) {
   return (req.socket && req.socket.remoteAddress) || 'unknown';
 }
 
-function checkRateLimit(req, { limit = 5, windowMs = 10 * 60 * 1000 } = {}) {
+function checkRateLimit(req, { key = 'global', limit = 5, windowMs = 10 * 60 * 1000 } = {}) {
   const ip = getIP(req);
-  const key = `${ip}`;
+  const mapKey = `${key}:${ip}`;
   const now = Date.now();
-  let entry = buckets.get(key);
+  let entry = buckets.get(mapKey);
   if (!entry || now > entry.resetAt) {
     entry = { count: 0, resetAt: now + windowMs };
   }
   entry.count += 1;
-  buckets.set(key, entry);
+  buckets.set(mapKey, entry);
   return {
     allowed: entry.count <= limit,
     retryAfterSec: entry.count <= limit ? 0 : Math.ceil((entry.resetAt - now) / 1000),
