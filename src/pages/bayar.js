@@ -7,7 +7,6 @@ export function resetFormBayarDetails() {
   document.getElementById("bayarKelas").value = "";
   document.getElementById("bayarSisaTagihan").value = "";
   document.getElementById("bayarNominal").value = "";
-  document.getElementById("bayarNominal").removeAttribute("max");
 }
 
 export function applyBayarSelectFilter() {

@@ -6,6 +6,10 @@ export function formatRupiah(number) {
   }).format(Number(number) || 0);
 }
 
+export function formatRibuan(value) {
+  return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
 export function formatDate(dateString) {
   if (!dateString) return "-";
   const date = new Date(dateString);

@@ -143,18 +143,21 @@ export async function deleteStudent(s) {
 
 export async function deletePaymentByCode(trxCode) {
   try {
-    const { data: row, error: errFind } = await supabase
+    const { data, error } = await supabase
       .from("payments")
-      .select("id")
+      .delete()
       .eq("trx_code", trxCode)
-      .single();
+      .select("id, trx_code");
 
-    if (errFind || !row) {
-      return { success: false, message: "Transaksi tidak ditemukan." };
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      return {
+        success: false,
+        message: "Gagal menghapus: transaksi tidak ditemukan atau akses ditolak (cek policy RLS tabel payments).",
+      };
     }
 
-    const { error: errDel } = await supabase.from("payments").delete().eq("id", row.id);
-    if (errDel) throw errDel;
     return { success: true, message: `Transaksi ${trxCode} dihapus.` };
   } catch (err) {
     console.error("Error deletePaymentByCode:", err);

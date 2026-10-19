@@ -6,12 +6,14 @@ import {
   createPayment,
   deletePaymentByCode,
   getPaymentHistory,
+  getStudentsRecap,
 } from "./services/db.js";
 import {
   showKwitansi,
   hideKwitansi,
   applyRoleAccess,
   formatRupiah,
+  formatRibuan,
   toast,
   confirmDelete,
   escapeHtml,
@@ -187,12 +189,20 @@ function setupEventListeners() {
       document.getElementById("bayarSisaTagihan").value = formatRupiah(sisa);
 
       const inputNominal = document.getElementById("bayarNominal");
-      inputNominal.max = sisa;
-      inputNominal.value = sisa > 0 ? sisa : "";
+      inputNominal.value = sisa > 0 ? formatRibuan(sisa) : "";
       inputNominal.placeholder = sisa > 0 ? `Maks ${formatRupiah(sisa)}` : "Sudah lunas";
     } else {
       resetFormBayarDetails();
     }
+  });
+
+  const inputNominal = document.getElementById("bayarNominal");
+  inputNominal.addEventListener("input", () => {
+    const caretFromEnd = inputNominal.value.length - inputNominal.selectionStart;
+    const raw = inputNominal.value.replace(/\D/g, "");
+    inputNominal.value = raw ? formatRibuan(raw) : "";
+    const pos = inputNominal.value.length - caretFromEnd;
+    inputNominal.setSelectionRange(Math.max(pos, 0), Math.max(pos, 0));
   });
 
   const searchSiswa = document.getElementById("searchSiswa");
@@ -277,7 +287,7 @@ function setupEventListeners() {
   document.getElementById("formBayar").addEventListener("submit", async (e) => {
     e.preventDefault();
     const studentId = document.getElementById("selectSiswa").value;
-    const nominal = document.getElementById("bayarNominal").value;
+    const nominalRaw = document.getElementById("bayarNominal").value.replace(/\D/g, "");
     const notes = document.getElementById("bayarKet").value.trim();
     const btn = document.getElementById("btnSubmitBayar");
 
@@ -285,7 +295,7 @@ function setupEventListeners() {
       toast("Pilih siswa terlebih dahulu.", "error");
       return;
     }
-    if (!nominal || Number(nominal) <= 0) {
+    if (!nominalRaw || Number(nominalRaw) <= 0) {
       toast("Nominal harus lebih dari 0.", "error");
       return;
     }
@@ -295,7 +305,7 @@ function setupEventListeners() {
 
     const res = await createPayment({
       student_id: studentId,
-      amount: nominal,
+      amount: Number(nominalRaw),
       notes: notes
     });
 
@@ -444,6 +454,8 @@ async function confirmDeletePayment(h) {
   if (res.success) {
     toast(res.message, "success");
     loadRiwayat({ onDelete: confirmDeletePayment });
+    const recap = await getStudentsRecap();
+    if (recap.success) store.students = recap.data;
   } else {
     toast("Gagal menghapus: " + res.message, "error");
   }

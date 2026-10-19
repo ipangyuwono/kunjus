@@ -97,7 +97,7 @@ module.exports = async (req, res) => {
                 <h1 style="font-size:20px;font-weight:800;color:#0f172a;margin:0 0 8px;">Buat kata sandi baru</h1>
                 <p style="font-size:13px;color:#475569;margin:0 0 18px;">Halo, kami menerima permintaan reset kata sandi untuk akun di bawah ini. Klik tombol untuk melanjutkan.</p>
                 <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;margin:0 0 20px;">
-                  <p style="font-size:10px;font-weight:700;letter-spacing:1px;color:#94a3b8;margin:0 0 2px;">AKUN</p>
+                  <p style="font-size:10px;font-weight:700;letter -spacing:1px;color:#94a3b8;margin:0 0 2px;">AKUN</p>
                   <p style="font-size:14px;font-weight:700;color:#0f172a;margin:0;">${escapeHtml(email)}</p>
                 </div>
                 <div style="text-align:center;margin:0 0 8px;">
