@@ -7,6 +7,7 @@ import {
   deletePaymentByCode,
   getPaymentHistory,
   getStudentsRecap,
+  importStudentsBatch,
 } from "./services/db.js";
 import {
   showKwitansi,
@@ -18,10 +19,10 @@ import {
   confirmDelete,
   escapeHtml,
 } from "./lib/ui.js";
-import { exportRekapToCSV, exportHistoryToCSV } from "./lib/export.js";
+import { exportRekapToExcel, exportHistoryToExcel, parseStudentsFromExcel } from "./lib/export.js";
 import { store } from "./services/store.js";
 import { loadDashboard } from "./pages/dashboard.js";
-import { loadSiswa, applySiswaView, filteredSiswa } from "./pages/siswa.js";
+import { loadSiswa, applySiswaView, filteredSiswa, resetSiswaPage } from "./pages/siswa.js";
 import { prepareFormBayar, applyBayarSelectFilter, resetFormBayarDetails } from "./pages/bayar.js";
 import { loadRiwayat, applyRiwayatView, filteredRiwayat } from "./pages/riwayat.js";
 import { loadLaporan, applyRekapView } from "./pages/laporan.js";
@@ -49,6 +50,58 @@ function paintChips(selector, activeVal) {
 
 document.addEventListener("DOMContentLoaded", async () => {
   setupEventListeners();
+  const btnImport = document.getElementById("btnImportSiswa");
+  const fileInput = document.getElementById("fileImportSiswa");
+
+if (btnImport && fileInput) {
+  btnImport.addEventListener("click", ( ) => fileInput.click());
+
+  fileInput.addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      btnImport.disabled = true;
+      btnImport.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Membaca...`;
+
+      const students = await parseStudentsFromExcel(file);
+
+      if (students.length === 0) {
+        toast("Tidak ada data siswa yang terbaca dari Excel.", "error");
+        return;
+      }
+
+      const confirmResult = await Swal.fire({
+        title: "Import Data Siswa?",
+        html: `Ditemukan <b>${students.length}</b> siswa dari file Excel.<br>Lanjutkan proses penyimpanan?`,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Ya, Import",
+        cancelButtonText: "Batal",
+        confirmButtonColor: "#4f46e5",
+      });
+
+      if (confirmResult.isConfirmed) {
+        btnImport.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Menyimpan...`;
+        const res = await importStudentsBatch(students);
+
+        if (res.success) {
+          toast(res.message, "success");
+          loadSiswa(pageCallbacks); 
+        } else {
+          toast("Gagal import: " + res.message, "error");
+        }
+      }
+    } catch (err) {
+      toast("Gagal memproses Excel: " + err.message, "error");
+    } finally {
+      btnImport.disabled = false;
+      btnImport.innerHTML = `<i class="fa-solid fa-file-arrow-up text-xs"></i> <span>Import Excel</span>`;
+      fileInput.value = ""; 
+    }
+  });
+}
+
   setupNavbarMobile();
 
   const profile = await checkCurrentSession();
@@ -207,7 +260,10 @@ function setupEventListeners() {
 
   const searchSiswa = document.getElementById("searchSiswa");
   if (searchSiswa) {
-    searchSiswa.addEventListener("input", () => applySiswaView(pageCallbacks));
+    searchSiswa.addEventListener("input", () => {
+      resetSiswaPage();
+      applySiswaView(pageCallbacks);
+    });
   }
 
   const searchRiwayat = document.getElementById("searchRiwayat");
@@ -232,6 +288,7 @@ function setupEventListeners() {
     b.addEventListener("click", () => {
       store.siswaFilter = b.dataset.fs;
       paintChips(".fs-chip", store.siswaFilter);
+      resetSiswaPage();
       applySiswaView(pageCallbacks);
     });
   });
@@ -351,7 +408,7 @@ function setupEventListeners() {
       toast(res.message, "success");
       closeModalSiswa();
       document.getElementById("formTambahSiswa").reset();
-      document.getElementById("addTagihan").value = 500000;
+      document.getElementById("addTagihan").value = 1950000;
       loadSiswa(pageCallbacks);
     } else {
       toast("Gagal menyimpan siswa: " + res.message, "error");
@@ -390,7 +447,7 @@ function setupEventListeners() {
   });
 
   document.getElementById("btnExportRekap").addEventListener("click", () => {
-    exportRekapToCSV(filteredSiswa(document.getElementById("searchRekap")?.value, store.rekapFilter, store.rekapKelas));
+    exportRekapToExcel(filteredSiswa(document.getElementById("searchRekap")?.value, store.rekapFilter, store.rekapKelas));
   });
 
   document.getElementById("btnExportRiwayat").addEventListener("click", async () => {
@@ -398,7 +455,7 @@ function setupEventListeners() {
       const res = await getPaymentHistory();
       if (res.success) store.history = res.data;
     }
-    exportHistoryToCSV(filteredRiwayat());
+    exportHistoryToExcel(filteredRiwayat());
   });
 }
 
@@ -410,7 +467,7 @@ function openModalSiswa() {
 function openAddStudent() {
   editingId = "";
   document.getElementById("formTambahSiswa").reset();
-  document.getElementById("addTagihan").value = 500000;
+  document.getElementById("addTagihan").value = 1950000;
   document.getElementById("modalSiswaTitle").innerText = "Tambah siswa";
   document.getElementById("modalSiswaSub").innerText = "Pastikan NIS tidak ganda.";
   openModalSiswa();

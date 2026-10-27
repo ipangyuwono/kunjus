@@ -88,19 +88,20 @@ function statusBadge(status) {
   return '<span class="inline-block px-2 py-0.5 bg-rose-200 text-rose-700 border border-rose-50 text-[11px] font-semibold rounded-md">Belum bayar</span>';
 }
 
-export function renderStudentTable(students, actions = {}) {
+export function renderStudentTable(students, actions = {}, startIndex = 0) {
   const tbody = document.getElementById("tabelDataSiswa");
   tbody.innerHTML = "";
 
   if (!students || students.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-400 text-[13px]">Tidak ada yang cocok. Ubah kata kunci atau filter status.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-400 text-[13px]">Tidak ada yang cocok. Ubah kata kunci atau filter status.</td></tr>`;
     return;
   }
 
-  students.forEach((s) => {
+  students.forEach((s, idx) => {
     const tr = document.createElement("tr");
     tr.className = "hover:bg-slate-50 border-b border-slate-100 last:border-0";
     tr.innerHTML = `
+      <td class="px-4 py-2.5 text-center text-slate-500 font-medium">${startIndex + idx + 1}</td>
       <td class="px-4 py-2.5 font-semibold text-slate-800 whitespace-nowrap">${escapeHtml(s.nis)}</td>
       <td class="px-4 py-2.5 text-slate-700">${escapeHtml(s.nama)}</td>
       <td class="px-4 py-2.5 text-slate-500 whitespace-nowrap">${escapeHtml(s.kelas)}</td>
@@ -120,6 +121,90 @@ export function renderStudentTable(students, actions = {}) {
     }
     tbody.appendChild(tr);
   });
+}
+
+export function renderSiswaPagination(total, page, pageSize, onPageChange) {
+  const container = document.getElementById("siswaPagination");
+  const infoEl = document.getElementById("siswaPaginationInfo");
+  const btnsEl = document.getElementById("siswaPaginationButtons");
+
+  if (!container || !infoEl || !btnsEl) return;
+
+  if (total === 0) {
+    container.classList.add("hidden");
+    return;
+  }
+  container.classList.remove("hidden");
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const from = (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
+
+  infoEl.innerText = `Menampilkan ${from}-${to} dari total ${total} siswa`;
+  btnsEl.innerHTML = "";
+
+  if (totalPages <= 1) return;
+
+  // Tombol Prev
+  const prevBtn = document.createElement("button");
+  prevBtn.type = "button";
+  prevBtn.disabled = page <= 1;
+  prevBtn.className = `px-2.5 py-1.5 rounded-md border text-xs font-semibold transition ${
+    page <= 1
+      ? "opacity-40 cursor-not-allowed bg-slate-50 border-slate-200 text-slate-400"
+      : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+  }`;
+  prevBtn.innerHTML = `<i class="fa-solid fa-chevron-left text-[10px]"></i>`;
+  prevBtn.addEventListener("click", () => onPageChange(page - 1));
+  btnsEl.appendChild(prevBtn);
+
+  // Nomor halaman
+  const pages = [];
+  if (totalPages <= 5) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i);
+  } else {
+    if (page <= 3) {
+      pages.push(1, 2, 3, 4, "...", totalPages);
+    } else if (page >= totalPages - 2) {
+      pages.push(1, "...", totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+    } else {
+      pages.push(1, "...", page - 1, page, page + 1, "...", totalPages);
+    }
+  }
+
+  pages.forEach((p) => {
+    if (p === "...") {
+      const span = document.createElement("span");
+      span.className = "px-2 py-1 text-slate-400 text-xs";
+      span.innerText = "...";
+      btnsEl.appendChild(span);
+    } else {
+      const pBtn = document.createElement("button");
+      pBtn.type = "button";
+      const isCurrent = p === page;
+      pBtn.className = `min-w-[32px] h-8 px-2 rounded-md text-xs font-semibold transition ${
+        isCurrent
+          ? "bg-indigo-600 text-white"
+          : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
+      }`;
+      pBtn.innerText = String(p);
+      pBtn.addEventListener("click", () => onPageChange(p));
+      btnsEl.appendChild(pBtn);
+    }
+  });
+
+  // Tombol Next
+  const nextBtn = document.createElement("button");
+  nextBtn.type = "button";
+  nextBtn.disabled = page >= totalPages;
+  nextBtn.className = `px-2.5 py-1.5 rounded-md border text-xs font-semibold transition ${
+    page >= totalPages
+      ? "opacity-40 cursor-not-allowed bg-slate-50 border-slate-200 text-slate-400"
+      : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+  }`;
+  nextBtn.innerHTML = `<i class="fa-solid fa-chevron-right text-[10px]"></i>`;
+  nextBtn.addEventListener("click", () => onPageChange(page + 1));
+  btnsEl.appendChild(nextBtn);
 }
 
 export function renderPaymentHistory(history, onPrintCallback, actions = {}) {

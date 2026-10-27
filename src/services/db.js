@@ -60,6 +60,7 @@ export async function getStudentsRecap() {
     const { data, error } = await supabase
       .from("v_student_recap")
       .select("*")
+      .order("nis", { ascending: true })
       .order("nama", { ascending: true });
 
     if (error) throw error;
@@ -299,6 +300,56 @@ export async function getPaymentHistory() {
     return { success: true, data };
   } catch (err) {
     console.error("Error getPaymentHistory:", err);
+    return { success: false, message: err.message };
+  }
+}
+
+export async function importStudentsBatch(studentsList) {
+  try {
+    if (!studentsList || studentsList.length === 0) {
+      return { success: false, message: "Tidak ada data siswa yang valid untuk diimport." };
+    }
+
+    const { data, error } = await supabase
+      .from("students")
+      .upsert(studentsList, { onConflict: "nis" });
+
+    if (error) throw error;
+
+    return {
+      success: true,
+      count: studentsList.length,
+      message: `Berhasil mengimport ${studentsList.length} data siswa!`,
+    };
+  } catch (err) {
+    console.error("Error importStudentsBatch:", err);
+    return { success: false, message: err.message };
+  }
+}
+
+export async function fixTagihanAndNisBatch() {
+  try {
+    const { data: students, error: errFetch } = await supabase
+      .from("students")
+      .select("id, nis, total_tagihan");
+    if (errFetch) throw errFetch;
+
+    const toFix = (students || []).filter((s) => Number(s.total_tagihan) > 2000000);
+    if (toFix.length === 0) return { success: true, count: 0 };
+
+    for (const s of toFix) {
+      await supabase
+        .from("students")
+        .update({
+          nis: String(s.total_tagihan),
+          total_tagihan: 1950000,
+        })
+        .eq("id", s.id);
+    }
+
+    return { success: true, count: toFix.length };
+  } catch (err) {
+    console.error("Error fixTagihanAndNisBatch:", err);
     return { success: false, message: err.message };
   }
 }
