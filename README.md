@@ -1,49 +1,45 @@
-# Kunjus — Kas Kunjungan Industri
+# 🎓 Kunjus — Industrial Visit & Fee Management System
 
-Vanilla HTML + Supabase + Vercel Serverless (`/api`).
+A fast, lightweight, and modern web application designed to manage student billing, installment payments, and financial reporting for school industrial visits (*Kunjungan Industri*). Built with **pure Vanilla JavaScript**, backed by **Supabase**, and deployed seamlessly on **Vercel**.
 
-## Struktur
+---
 
-```
-├── index.html / forgot-password.html / reset-password.html
+## ✨ Features
+
+- **📊 Interactive Dashboard** — Real-time insights into total funds collected, payment completion rates, and overall progress.
+- **👥 Student Billing Management** — Comprehensive records of student profiles, classes, NIS, and billing targets with search, filters, and pagination.
+- **💳 Cashier & Payment Processing** — Quick installment recording, remaining balance calculation, and instant printable digital receipts (*Kwitansi*).
+- **📜 Transaction History & Audit** — Full transaction logs with receipt reprinting and payment cancellation capabilities.
+- **📥 Batch Excel Import & Export** — High-speed bulk student onboarding and stylized `.xlsx` financial report generation powered by ExcelJS.
+- **🔐 Secure Auth & Role Access** — Supabase Auth with granular role controls (Admin & Cashier/Operator).
+- **🔑 Serverless Password Recovery** — Forgot and reset password workflows powered by Vercel Serverless Functions and Brevo email API.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Frontend:** Vanilla HTML5, Vanilla JavaScript (ES Modules), Tailwind CSS
+- **Backend & Database:** [Supabase](https://supabase.com/) (PostgreSQL, Row-Level Security, Supabase Auth)
+- **Serverless API:** Node.js on Vercel Serverless Functions (`/api`)
+- **Third-Party Libraries:** ExcelJS (Excel Import/Export), Brevo API (Transactional Emails)
+- **Deployment:** [Vercel](https://vercel.com/)
+
+---
+
+## 📁 Project Structure
+
+```text
+├── index.html                 # Main single-page application entry
+├── forgot-password.html       # Password reset request page
+├── reset-password.html        # New password submission page
+├── api/                       # Vercel Serverless Functions (Server-side)
+│   ├── _lib/supabase.js       # Secure Supabase client (service_role)
+│   ├── forgot-password.js     # Password reset email handler
+│   └── reset-password.js      # Password update handler
 ├── src/
-│   ├── main.js              # orkestrator: login, tab, events
-│   ├── pages/               # logika per halaman
-│   │   ├── dashboard.js
-│   │   ├── siswa.js
-│   │   ├── bayar.js
-│   │   ├── riwayat.js
-│   │   └── laporan.js
-│   ├── services/            # akses data + state
-│   │   ├── auth.js
-│   │   ├── db.js
-│   │   └── store.js
-│   └── lib/                 # client + UI murni
-│       ├── supabase-client.js (anon key, aman public)
-│       ├── ui.js
-│       └── export.js
-├── api/
-│   ├── _lib/supabase.js     # service_role, server only
-│   ├── forgot-password.js
-│   └── reset-password.js
-├── server.js                # dev lokal saja
-└── vercel.json
-```
-
-## Env
-
-Lihat `.env.example`. Set di Vercel: Settings → Environment Variables
-(`Production`), lalu Redeploy.
-
-- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `BREVO_API_KEY`
-  → server only, jangan taruh di frontend.
-- `SUPABASE_ANON_KEY` → hanya di `src/lib/supabase-client.js`.
-- `APP_URL` → `https://kunjus.vercel.app` di production.
-
-## Dev lokal
-
-```sh
-npm i
-node server.js
-# http://localhost:3000
-```
+│   ├── main.js                # Application entrypoint & DOM event bindings
+│   ├── pages/                 # UI views (dashboard, siswa, bayar, riwayat, laporan)
+│   ├── services/              # API layer, state store, and Supabase client
+│   └── lib/                   # Utilities, UI helpers, and Excel import/export
+├── server.js                  # Local Express development server
+└── vercel.json                # Vercel deployment configuration
