@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "build": "echo 'No build required for Vanilla JS'"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.47.0",
