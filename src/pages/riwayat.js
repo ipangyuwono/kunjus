@@ -8,12 +8,17 @@ export function localDateKey(isoString) {
 }
 
 export function filteredRiwayat() {
-  const q = (document.getElementById("searchRiwayat")?.value || "").toLowerCase();
+  const q = (document.getElementById("searchRiwayat")?.value || "").toLowerCase().trim();
   const tgl = document.getElementById("filterTanggal")?.value || "";
-  return store.history.filter((h) =>
-    (!tgl || localDateKey(h.created_at) === tgl) &&
-    `${h.trx_code} ${h.nis} ${h.nama_siswa}`.toLowerCase().includes(q)
-  );
+  const list = store.history || [];
+  return list.filter((h) => {
+    if (tgl && localDateKey(h.created_at) !== tgl) return false;
+    if (!q) return true;
+    if (!h._search) {
+      h._search = `${h.trx_code || ""} ${h.nis || ""} ${h.nama_siswa || ""}`.toLowerCase();
+    }
+    return h._search.includes(q);
+  });
 }
 
 export function applyRiwayatView(callbacks = {}) {
@@ -29,7 +34,12 @@ export async function loadRiwayat(callbacks = {}) {
   showTableLoading("tabelRiwayat", 8);
   const res = await getPaymentHistory();
   if (res.success) {
-    store.history = res.data;
+    const data = res.data || [];
+    for (let i = 0; i < data.length; i++) {
+      const h = data[i];
+      h._search = `${h.trx_code || ""} ${h.nis || ""} ${h.nama_siswa || ""}`.toLowerCase();
+    }
+    store.history = data;
     applyRiwayatView(callbacks);
   } else {
     showTableError("tabelRiwayat", 8, res.message);

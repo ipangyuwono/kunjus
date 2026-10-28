@@ -1,26 +1,38 @@
+const rupiahFormatter = new Intl.NumberFormat("id-ID", {
+  style: "currency",
+  currency: "IDR",
+  maximumFractionDigits: 0,
+});
+
 export function formatRupiah(number) {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(Number(number) || 0);
+  return rupiahFormatter.format(Number(number) || 0);
 }
 
 export function formatRibuan(value) {
   return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
+const dateFormatter = new Intl.DateTimeFormat("id-ID", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit", 
+});
+
 export function formatDate(dateString) {
   if (!dateString) return "-";
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return "-";
-  return date.toLocaleString("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit", 
-  });
+  return dateFormatter.format(date);
+}
+
+export function debounce(fn, waitMs = 200) {
+  let timeout;
+  return function (...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => fn.apply(this, args), waitMs);
+  };
 }
 
 export function escapeHtml(str) {  return String(str ?? "").replace(/[&<>"']/g, (c) => ({
@@ -90,12 +102,15 @@ function statusBadge(status) {
 
 export function renderStudentTable(students, actions = {}, startIndex = 0) {
   const tbody = document.getElementById("tabelDataSiswa");
+  if (!tbody) return;
   tbody.innerHTML = "";
 
   if (!students || students.length === 0) {
     tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-400 text-[13px]">Tidak ada yang cocok. Ubah kata kunci atau filter status.</td></tr>`;
     return;
   }
+
+  const fragment = document.createDocumentFragment();
 
   students.forEach((s, idx) => {
     const tr = document.createElement("tr");
@@ -119,8 +134,10 @@ export function renderStudentTable(students, actions = {}, startIndex = 0) {
       tr.querySelector(".btn-ubah").addEventListener("click", () => actions.onEdit && actions.onEdit(s));
       tr.querySelector(".btn-hapus").addEventListener("click", () => actions.onDelete && actions.onDelete(s));
     }
-    tbody.appendChild(tr);
+    fragment.appendChild(tr);
   });
+
+  tbody.appendChild(fragment);
 }
 
 export function renderSiswaPagination(total, page, pageSize, onPageChange) {
@@ -145,7 +162,6 @@ export function renderSiswaPagination(total, page, pageSize, onPageChange) {
 
   if (totalPages <= 1) return;
 
-  // Tombol Prev
   const prevBtn = document.createElement("button");
   prevBtn.type = "button";
   prevBtn.disabled = page <= 1;
@@ -158,7 +174,6 @@ export function renderSiswaPagination(total, page, pageSize, onPageChange) {
   prevBtn.addEventListener("click", () => onPageChange(page - 1));
   btnsEl.appendChild(prevBtn);
 
-  // Nomor halaman
   const pages = [];
   if (totalPages <= 5) {
     for (let i = 1; i <= totalPages; i++) pages.push(i);
@@ -209,12 +224,15 @@ export function renderSiswaPagination(total, page, pageSize, onPageChange) {
 
 export function renderPaymentHistory(history, onPrintCallback, actions = {}) {
   const tbody = document.getElementById("tabelRiwayat");
+  if (!tbody) return;
   tbody.innerHTML = "";
 
   if (!history || history.length === 0) {
     tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-400 text-[13px]">Tidak ada yang cocok. Ubah kata kunci atau tanggal.</td></tr>`;
     return;
   }
+
+  const fragment = document.createDocumentFragment();
 
   history.forEach((h) => {
     const tr = document.createElement("tr");
@@ -241,18 +259,23 @@ export function renderPaymentHistory(history, onPrintCallback, actions = {}) {
       tr.querySelector(".btn-hapus-trx").addEventListener("click", () => actions.onDelete && actions.onDelete(h));
     }
 
-    tbody.appendChild(tr);
+    fragment.appendChild(tr);
   });
+
+  tbody.appendChild(fragment);
 }
 
 export function renderLaporanTable(students) {
   const tbody = document.getElementById("tabelLaporanRekap");
+  if (!tbody) return;
   tbody.innerHTML = "";
 
   if (!students || students.length === 0) {
     tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400 text-[13px]">Tidak ada yang cocok. Ubah kata kunci atau filter status.</td></tr>`;
     return;
   }
+
+  const fragment = document.createDocumentFragment();
 
   students.forEach((s) => {
     const tr = document.createElement("tr");
@@ -265,35 +288,62 @@ export function renderLaporanTable(students) {
       <td class="px-4 py-2.5 num">${formatRupiah(s.total_terbayar)}</td>
       <td class="px-4 py-2.5 num font-semibold">${formatRupiah(s.sisa_tagihan)}</td>
       <td class="px-4 py-2.5">${statusBadge(s.status)}</td>`;
-    tbody.appendChild(tr);
+    fragment.appendChild(tr);
   });
+
+  tbody.appendChild(fragment);
 }
 
 export function populateSiswaSelect(students) {
   const select = document.getElementById("selectSiswa");
-  const current = select ? select.value : "";
-  select.innerHTML = '<option value="">-- Pilih Siswa --</option>';
+  if (!select) return;
+  const current = select.value;
+
+  const fragment = document.createDocumentFragment();
+  const defaultOpt = document.createElement("option");
+  defaultOpt.value = "";
+  defaultOpt.textContent = "-- Pilih Siswa --";
+  fragment.appendChild(defaultOpt);
 
   if (!students || students.length === 0) {
     const opt = document.createElement("option");
     opt.value = "";
     opt.disabled = true;
     opt.textContent = "Tidak ada yang cocok, ubah ketikan di atas.";
-    select.appendChild(opt);
+    fragment.appendChild(opt);
+    select.innerHTML = "";
+    select.appendChild(fragment);
     return;
   }
 
-  students.forEach((s) => {
+  const MAX_RENDER = 150;
+  const listToRender = students.slice(0, MAX_RENDER);
+  let hasCurrent = false;
+
+  for (let i = 0; i < listToRender.length; i++) {
+    const s = listToRender[i];
     const sisa = Number(s.sisa_tagihan) || 0;
     const statusNote = sisa === 0 ? " (LUNAS)" : ` (Sisa: ${formatRupiah(sisa)})`;
     const opt = document.createElement("option");
     opt.value = s.id;
     opt.textContent = `${s.nis} - ${s.nama} (${s.kelas})${statusNote}`;
     if (sisa === 0) opt.disabled = true;
-    select.appendChild(opt);
-  });
+    if (current && String(s.id) === String(current)) hasCurrent = true;
+    fragment.appendChild(opt);
+  }
 
-  if (current && [...select.options].some((o) => o.value === current)) {
+  if (students.length > MAX_RENDER) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.disabled = true;
+    opt.textContent = `... dan ${students.length - MAX_RENDER} siswa lainnya (persempit kata kunci pencarian)`;
+    fragment.appendChild(opt);
+  }
+
+  select.innerHTML = "";
+  select.appendChild(fragment);
+
+  if (current && hasCurrent) {
     select.value = current;
   }
 }

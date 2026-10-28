@@ -16,13 +16,17 @@ export function matchStatus(s, f) {
   return s.status !== "Lunas" && s.status !== "Cicilan";
 }
 
-export function filteredSiswa(q, statusF, kelasF, list = store.students) {
-  const query = (q ?? "").toLowerCase();
-  const res = list.filter((s) =>
-    matchStatus(s, statusF) &&
-    (!kelasF || s.kelas === kelasF) &&
-    `${s.nis} ${s.nama} ${s.kelas}`.toLowerCase().includes(query)
-  );
+export function filteredSiswa(q, statusF, kelasF, list = store.students || []) {
+  const query = (q ?? "").toLowerCase().trim();
+  const res = list.filter((s) => {
+    if (!matchStatus(s, statusF)) return false;
+    if (kelasF && s.kelas !== kelasF) return false;
+    if (!query) return true;
+    if (!s._search) {
+      s._search = `${s.nis || ""} ${s.nama || ""} ${s.kelas || ""}`.toLowerCase();
+    }
+    return s._search.includes(query);
+  });
 
   return res.sort((a, b) => {
     const nisComp = String(a.nis || "").localeCompare(String(b.nis || ""), undefined, { numeric: true });
@@ -62,7 +66,12 @@ export async function loadSiswa(callbacks = {}) {
   try {
     const res = await getStudentsRecap();
     if (res.success) {
-      store.students = res.data || [];
+      const data = res.data || [];
+      for (let i = 0; i < data.length; i++) {
+        const s = data[i];
+        s._search = `${s.nis || ""} ${s.nama || ""} ${s.kelas || ""}`.toLowerCase();
+      }
+      store.students = data;
       const q = (store.pendingNavQuery || "").trim().toLowerCase();
       store.pendingNavQuery = "";
       if (q) {

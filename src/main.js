@@ -18,6 +18,7 @@ import {
   toast,
   confirmDelete,
   escapeHtml,
+  debounce,
 } from "./lib/ui.js";
 import { exportRekapToExcel, exportHistoryToExcel, parseStudentsFromExcel } from "./lib/export.js";
 import { store } from "./services/store.js";
@@ -260,28 +261,37 @@ function setupEventListeners() {
 
   const searchSiswa = document.getElementById("searchSiswa");
   if (searchSiswa) {
-    searchSiswa.addEventListener("input", () => {
-      resetSiswaPage();
-      applySiswaView(pageCallbacks);
-    });
+    searchSiswa.addEventListener(
+      "input",
+      debounce(() => {
+        resetSiswaPage();
+        applySiswaView(pageCallbacks);
+      }, 150)
+    );
   }
 
   const searchRiwayat = document.getElementById("searchRiwayat");
   if (searchRiwayat) {
-    searchRiwayat.addEventListener("input", () => applyRiwayatView({ onDelete: confirmDeletePayment }));
+    searchRiwayat.addEventListener(
+      "input",
+      debounce(() => applyRiwayatView({ onDelete: confirmDeletePayment }), 150)
+    );
   }
 
   const searchRekap = document.getElementById("searchRekap");
   if (searchRekap) {
-    searchRekap.addEventListener("input", applyRekapView);
+    searchRekap.addEventListener("input", debounce(applyRekapView, 150));
   }
 
   const searchBayar = document.getElementById("searchBayar");
   if (searchBayar) {
-    searchBayar.addEventListener("input", () => {
-      store.bayarQuery = searchBayar.value;
-      applyBayarSelectFilter();
-    });
+    searchBayar.addEventListener(
+      "input",
+      debounce(() => {
+        store.bayarQuery = searchBayar.value;
+        applyBayarSelectFilter();
+      }, 150)
+    );
   }
 
   document.querySelectorAll(".fs-chip").forEach((b) => {
@@ -307,8 +317,7 @@ function setupEventListeners() {
       if (box && box !== except) box.value = val;
     });
   };
-  const applyNavSearch = (raw, sourceBox) => {
-    syncNavBoxes(raw, sourceBox);
+  const performNavSearch = (raw) => {
     if (currentActiveTab === "siswa") {
       const box = document.getElementById("searchSiswa");
       if (box) box.value = raw;
@@ -321,6 +330,16 @@ function setupEventListeners() {
       const box = document.getElementById("searchRekap");
       if (box) box.value = raw;
       applyRekapView();
+    }
+  };
+  const debouncedNavSearch = debounce(performNavSearch, 150);
+
+  const applyNavSearch = (raw, sourceBox, immediate = false) => {
+    syncNavBoxes(raw, sourceBox);
+    if (immediate || !raw) {
+      performNavSearch(raw);
+    } else {
+      debouncedNavSearch(raw);
     }
   };
   [navSearch, navSearchMobile].forEach((box) => {
@@ -336,7 +355,7 @@ function setupEventListeners() {
       }
       if (e.key === "Escape") {
         box.value = "";
-        applyNavSearch("", box);
+        applyNavSearch("", box, true);
       }
     });
   });
