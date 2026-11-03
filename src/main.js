@@ -231,6 +231,19 @@ function setupEventListeners() {
     });
   });
 
+  const jumpToSiswaWithFilter = (filterVal) => {
+    store.siswaFilter = filterVal;
+    paintChips(".fs-chip", filterVal);
+    resetSiswaPage();
+    switchTab("siswa");
+  };
+
+  document.getElementById("cardDashTotalSiswa")?.addEventListener("click", () => jumpToSiswaWithFilter("all"));
+  document.getElementById("cardDashLunas")?.addEventListener("click", () => jumpToSiswaWithFilter("Lunas"));
+  document.getElementById("cardDashCicilan")?.addEventListener("click", () => jumpToSiswaWithFilter("Cicilan"));
+  document.getElementById("cardDashBelumBayar")?.addEventListener("click", () => jumpToSiswaWithFilter("belum"));
+  document.getElementById("cardDashTrx")?.addEventListener("click", () => switchTab("riwayat"));
+
   const selectSiswa = document.getElementById("selectSiswa");
   selectSiswa.addEventListener("change", () => {
     const studentId = selectSiswa.value;

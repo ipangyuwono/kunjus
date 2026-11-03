@@ -127,20 +127,24 @@
           <div>
             <h2 class="text-lg font-bold text-slate-900">Ringkasan Dashboard</h2>
           </div>
-          <div class="grid grid-cols-2 xl:grid-cols-4 gap-3">
-            <div class="bg-white border border-slate-200 rounded-xl p-4">
+          <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+            <div id="cardDashTotalSiswa" class="bg-white border border-slate-200 rounded-xl p-4 cursor-pointer hover:border-slate-300 transition" title="Klik untuk lihat semua siswa">
               <p class="text-[11px] font-semibold text-slate-500">Total siswa</p>
               <p id="dashTotalSiswa" class="text-2xl font-bold text-slate-900 mt-1">0</p>
             </div>
-            <div class="bg-white border border-slate-200 rounded-xl p-4">
+            <div id="cardDashLunas" class="bg-white border border-slate-200 rounded-xl p-4 cursor-pointer hover:border-emerald-300 transition" title="Klik untuk lihat siswa yang sudah lunas">
               <p class="text-[11px] font-semibold text-slate-500">Sudah lunas</p>
               <p id="dashSiswaLunas" class="text-2xl font-bold text-emerald-700 mt-1">0</p>
             </div>
-            <div class="bg-white border border-slate-200 rounded-xl p-4">
-              <p class="text-[11px] font-semibold text-slate-500">Belum / cicilan</p>
-              <p id="dashSiswaBelumLunas" class="text-2xl font-bold text-amber-700 mt-1">0</p>
+            <div id="cardDashCicilan" class="bg-white border border-slate-200 rounded-xl p-4 cursor-pointer hover:border-amber-300 transition" title="Klik untuk lihat siswa yang mencicil">
+              <p class="text-[11px] font-semibold text-slate-500">Cicilan</p>
+              <p id="dashSiswaCicilan" class="text-2xl font-bold text-amber-700 mt-1">0</p>
             </div>
-            <div class="bg-white border border-slate-200 rounded-xl p-4">
+            <div id="cardDashBelumBayar" class="bg-white border border-slate-200 rounded-xl p-4 cursor-pointer hover:border-rose-300 transition" title="Klik untuk lihat siswa yang belum bayar">
+              <p class="text-[11px] font-semibold text-slate-500">Belum bayar</p>
+              <p id="dashSiswaBelumBayar" class="text-2xl font-bold text-rose-700 mt-1">0</p>
+            </div>
+            <div id="cardDashTrx" class="bg-white border border-slate-200 rounded-xl p-4 col-span-2 md:col-span-1 cursor-pointer hover:border-indigo-300 transition" title="Klik untuk lihat riwayat transaksi">
               <p class="text-[11px] font-semibold text-slate-500">Transaksi tercatat</p>
               <p id="dashTotalTrx" class="text-2xl font-bold text-slate-900 mt-1">0</p>
             </div>

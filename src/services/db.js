@@ -19,7 +19,8 @@ export async function getDashboardData() {
     let totalTagihan = 0;
     let totalUangMasuk = 0;
     let totalSiswaLunas = 0;
-    let totalSiswaBelumLunas = 0;
+    let totalSiswaCicilan = 0;
+    let totalSiswaBelumBayar = 0;
 
     recap.forEach((item) => {
       const tagihan = Number(item.total_tagihan) || 0;
@@ -30,8 +31,10 @@ export async function getDashboardData() {
 
       if (item.status === "Lunas") {
         totalSiswaLunas++;
+      } else if (item.status === "Cicilan") {
+        totalSiswaCicilan++;
       } else {
-        totalSiswaBelumLunas++;
+        totalSiswaBelumBayar++;
       }
     });
 
@@ -42,7 +45,9 @@ export async function getDashboardData() {
       data: {
         totalSiswa,
         totalSiswaLunas,
-        totalSiswaBelumLunas,
+        totalSiswaCicilan,
+        totalSiswaBelumBayar,
+        totalSiswaBelumLunas: totalSiswaCicilan + totalSiswaBelumBayar,
         totalTransaksi: totalTransaksi || 0,
         totalTagihan,
         totalUangMasuk,

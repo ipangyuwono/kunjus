@@ -4,15 +4,17 @@ import { renderDashboard, formatRupiah, toast } from "../lib/ui.js";
 let chartHarian = null;
 
 export async function loadDashboard() {
-  ["dashTotalSiswa", "dashSiswaLunas", "dashSiswaBelumLunas", "dashTotalTrx"].forEach((id) => {
-    document.getElementById(id).innerText = "…";
+  ["dashTotalSiswa", "dashSiswaLunas", "dashSiswaCicilan", "dashSiswaBelumBayar", "dashSiswaBelumLunas", "dashTotalTrx"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.innerText = "…";
   });
   const res = await getDashboardData();
   if (res.success) {
     renderDashboard(res.data);
   } else {
-    ["dashTotalSiswa", "dashSiswaLunas", "dashSiswaBelumLunas", "dashTotalTrx"].forEach((id) => {
-      document.getElementById(id).innerText = "0";
+    ["dashTotalSiswa", "dashSiswaLunas", "dashSiswaCicilan", "dashSiswaBelumBayar", "dashSiswaBelumLunas", "dashTotalTrx"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.innerText = "0";
     });
     toast("Gagal memuat dashboard: " + res.message, "error");
   }

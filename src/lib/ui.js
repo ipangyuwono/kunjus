@@ -70,14 +70,21 @@ export function showTableError(tbodyId, cols, message) {
 }
 
 export function renderDashboard(stats) {
-  document.getElementById("dashTotalSiswa").innerText = stats.totalSiswa ?? 0;
-  document.getElementById("dashSiswaLunas").innerText = stats.totalSiswaLunas ?? 0;
-  document.getElementById("dashSiswaBelumLunas").innerText = stats.totalSiswaBelumLunas ?? 0;
-  document.getElementById("dashTotalTrx").innerText = stats.totalTransaksi ?? 0;
+  const setEl = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.innerText = val ?? 0;
+  };
 
-  document.getElementById("dashTotalTagihan").innerText = formatRupiah(stats.totalTagihan);
-  document.getElementById("dashUangMasuk").innerText = formatRupiah(stats.totalUangMasuk);
-  document.getElementById("dashSisaTagihan").innerText = formatRupiah(stats.sisaTagihan);
+  setEl("dashTotalSiswa", stats.totalSiswa);
+  setEl("dashSiswaLunas", stats.totalSiswaLunas);
+  setEl("dashSiswaCicilan", stats.totalSiswaCicilan);
+  setEl("dashSiswaBelumBayar", stats.totalSiswaBelumBayar);
+  setEl("dashSiswaBelumLunas", stats.totalSiswaBelumLunas ?? ((stats.totalSiswaCicilan || 0) + (stats.totalSiswaBelumBayar || 0)));
+  setEl("dashTotalTrx", stats.totalTransaksi);
+
+  setEl("dashTotalTagihan", formatRupiah(stats.totalTagihan));
+  setEl("dashUangMasuk", formatRupiah(stats.totalUangMasuk));
+  setEl("dashSisaTagihan", formatRupiah(stats.sisaTagihan));
 
   const bar = document.getElementById("dashProgressBar");
   const pctLabel = document.getElementById("dashProgressPct");
@@ -208,7 +215,6 @@ export function renderSiswaPagination(total, page, pageSize, onPageChange) {
     }
   });
 
-  // Tombol Next
   const nextBtn = document.createElement("button");
   nextBtn.type = "button";
   nextBtn.disabled = page >= totalPages;
